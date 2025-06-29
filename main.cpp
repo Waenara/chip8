@@ -1,6 +1,5 @@
-#include <iostream>
-
 #include "chip8.h"
+#include "lib/tinyfiledialogs/tinyfiledialogs.h"
 
 Chip8 emulator;
 
@@ -8,15 +7,25 @@ Chip8 emulator;
 // - https://multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/
 // - https://en.wikipedia.org/wiki/CHIP-8
 // - ChatGPT :)
-[[noreturn]] int main() {
+int main() {
+    emulator.initialize();
     emulator.setupGraphics();
 
-    emulator.initialize();
-    emulator.loadROM("/home/asus/Загрузки/test_opcode.ch8");
+    const char* filters[] = { "*.ch8" };
+    const char* file = tinyfd_openFileDialog("Выбрать ROM", "", 1, filters, "CHIP‑8 ROM", 0);
+    if (file)
+        emulator.loadROM(file);
 
     while (true) {
-        emulator.emulateCycle();
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                SDL_Quit();
+                return 0;
+            }
+        }
 
+        emulator.emulateCycle();
         emulator.renderGraphics();
     }
 }
