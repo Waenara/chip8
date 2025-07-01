@@ -23,7 +23,8 @@ class Chip8 {
 public:
     void initialize();
     void setupGraphics();
-    void renderGraphics();
+    void renderGraphics() const;
+    void handleKeyEvent(const SDL_Event& event);
     void loadROM(const char* filename);
     void emulateCycle();
 };

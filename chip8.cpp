@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include "lib/tinyfiledialogs/tinyfiledialogs.h"
+
 void Chip8::initialize() {
     opcode = 0;
     index = 0;
@@ -44,13 +46,13 @@ void Chip8::initialize() {
 }
 
 void Chip8::setupGraphics() {
-    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     window = SDL_CreateWindow("CHIP-8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 320, 0);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 64, 32);
 }
 
-void Chip8::renderGraphics() {
+void Chip8::renderGraphics() const {
     uint32_t pixels[64 * 32];
     for (int i = 0; i < 64 * 32; ++i)
         pixels[i] = gfx[i] ? 0xFFFFFFFF : 0x00000000;
@@ -59,6 +61,49 @@ void Chip8::renderGraphics() {
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, nullptr, nullptr);
     SDL_RenderPresent(renderer);
+}
+
+void Chip8::handleKeyEvent(const SDL_Event &event) {
+    const bool pressed = (event.type == SDL_KEYDOWN);
+    switch (event.key.keysym.sym) {
+        case SDLK_1: key[0x1] = pressed;
+            break;
+        case SDLK_2: key[0x2] = pressed;
+            break;
+        case SDLK_3: key[0x3] = pressed;
+            break;
+        case SDLK_4: key[0xC] = pressed;
+            break;
+
+        case SDLK_q: key[0x4] = pressed;
+            break;
+        case SDLK_w: key[0x5] = pressed;
+            break;
+        case SDLK_e: key[0x6] = pressed;
+            break;
+        case SDLK_r: key[0xD] = pressed;
+            break;
+
+        case SDLK_a: key[0x7] = pressed;
+            break;
+        case SDLK_s: key[0x8] = pressed;
+            break;
+        case SDLK_d: key[0x9] = pressed;
+            break;
+        case SDLK_f: key[0xE] = pressed;
+            break;
+
+        case SDLK_z: key[0xA] = pressed;
+            break;
+        case SDLK_x: key[0x0] = pressed;
+            break;
+        case SDLK_c: key[0xB] = pressed;
+            break;
+        case SDLK_v: key[0xF] = pressed;
+            break;
+        default:
+            break;
+    }
 }
 
 void Chip8::loadROM(const char *filename) {
@@ -75,8 +120,6 @@ void Chip8::loadROM(const char *filename) {
 
 void Chip8::emulateCycle() {
     opcode = memory[program_counter] << 8 | memory[program_counter + 1];
-
-    std::cout << "Current opcode: " << std::hex << opcode << std::dec << std::endl;
 
     switch (opcode & 0xF000) {
         case 0x0000: {
@@ -344,7 +387,7 @@ void Chip8::emulateCycle() {
                 case 0x000A: {
                     // Потом доделать я ебал пока гпт код
                     // A key press is awaited, and then stored in VX (blocking operation, all instruction halted until next key event, delay and sound timers should continue processing).
-                    uint8_t x = (opcode & 0x0F00) >> 8;
+                    const uint8_t x = (opcode & 0x0F00) >> 8;
                     bool key_pressed = false;
 
                     for (uint8_t i = 0; i < 16; ++i) {
@@ -439,8 +482,32 @@ void Chip8::emulateCycle() {
 
     if (sound_timer > 0) {
         if (sound_timer == 1) {
-            std::cout << '\a';
+            SDL_AudioSpec want{}, have{};
+
+            want.freq = 44100;
+            want.format = AUDIO_S16SYS;
+            want.channels = 1;
+            want.samples = 2048;
+            want.callback = nullptr;
+
+            const SDL_AudioDeviceID dev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
+            if (!dev) return;
+
+            const int sample_count = (have.freq * 100) / 1000;
+            auto *buffer = new int16_t[sample_count];
+
+            for (int i = 0; i < sample_count; ++i) {
+                buffer[i] = (i / (have.freq / 440 / 2)) % 2 ? 8000 : -8000;
+            }
+
+            SDL_PauseAudioDevice(dev, 0);
+            SDL_QueueAudio(dev, buffer, sample_count * sizeof(int16_t));
+            SDL_Delay(100);
+            SDL_CloseAudioDevice(dev);
+            delete[] buffer;
         }
         --sound_timer;
     }
+
+    SDL_Delay(1);
 }

@@ -11,21 +11,26 @@ int main() {
     emulator.initialize();
     emulator.setupGraphics();
 
-    const char* filters[] = { "*.ch8" };
-    const char* file = tinyfd_openFileDialog("Выбрать ROM", "", 1, filters, "CHIP‑8 ROM", 0);
-    if (file)
+    const char *filters[] = {"*.ch8"};
+    const char *file = tinyfd_openFileDialog("Выбрать ROM", "", 1, filters, "CHIP‑8 ROM", 0);
+    if (file) {
         emulator.loadROM(file);
+    }
 
     while (true) {
+        emulator.emulateCycle();
+        emulator.renderGraphics();
+
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 SDL_Quit();
                 return 0;
             }
-        }
 
-        emulator.emulateCycle();
-        emulator.renderGraphics();
+            if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
+                emulator.handleKeyEvent(event);
+            }
+        }
     }
 }
